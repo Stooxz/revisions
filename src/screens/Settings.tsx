@@ -4,6 +4,17 @@ import { ensureModel, GeminiError, listModels } from '../gemini.ts'
 import { downloadBlob, Header, toast } from '../ui.tsx'
 import { KeyForm, ProfileForm } from './ProfileForms.tsx'
 
+/** Télécharge la dernière version publiée puis recharge l'appli. */
+async function updateApp() {
+  try {
+    const regs = (await navigator.serviceWorker?.getRegistrations()) ?? []
+    await Promise.all(regs.map((r) => r.update()))
+  } catch {
+    /* hors ligne : on recharge quand même */
+  }
+  location.reload()
+}
+
 export function Settings({ settings }: { settings: S }) {
   const [profile, setProfile] = useState(settings.profile!)
   const [models, setModels] = useState<string[]>([])
@@ -65,6 +76,12 @@ export function Settings({ settings }: { settings: S }) {
         </label>
         {modelMsg && <p className="muted" role="status">{modelMsg}</p>}
         <button className="btn small ghost" onClick={loadModels} disabled={!settings.apiKey}>Actualiser la liste des modèles</button>
+      </section>
+
+      <section className="card stack">
+        <h2>Version</h2>
+        <p className="muted">Version du {__BUILD__}</p>
+        <button className="btn small ghost" onClick={updateApp}>Chercher une mise à jour</button>
       </section>
 
       <section className="card stack">

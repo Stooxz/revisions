@@ -7,9 +7,11 @@ const BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
 export class GeminiError extends Error {
   kind: 'cle' | 'quota' | 'surcharge' | 'reseau' | 'modele' | 'autre'
-  constructor(kind: GeminiError['kind'], message: string) {
+  status?: number
+  constructor(kind: GeminiError['kind'], message: string, status?: number) {
     super(message)
     this.kind = kind
+    this.status = status
   }
 }
 
@@ -39,12 +41,12 @@ async function call<T>(path: string, key: string, body?: unknown, timeoutMs = 30
   if (res.ok) return res.json()
   const err = (await res.json().catch(() => ({}))) as { error?: { message?: string; status?: string } }
   const msg = err.error?.message ?? ''
-  if (res.status === 429) throw new GeminiError('quota', "Tu as atteint la limite gratuite pour l'instant, réessaie dans quelques minutes.")
+  if (res.status === 429) throw new GeminiError('quota', "Tu as atteint la limite gratuite pour l'instant, réessaie dans quelques minutes.", 429)
   if (res.status === 401 || res.status === 403 || /api key/i.test(msg))
     throw new GeminiError('cle', 'Ta clé Gemini est refusée. Vérifie-la dans les Réglages (copie-la en entier depuis AI Studio).')
-  if (res.status === 404) throw new GeminiError('modele', 'Ce modèle Gemini n’existe plus.')
-  if (res.status >= 500) throw new GeminiError('surcharge', SURCHARGE)
-  throw new GeminiError('autre', `Gemini a refusé la demande (${res.status}). ${msg}`)
+  if (res.status === 404) throw new GeminiError('modele', 'Ce modèle Gemini n’existe plus.', 404)
+  if (res.status >= 500) throw new GeminiError('surcharge', SURCHARGE, res.status)
+  throw new GeminiError('autre', `Gemini a refusé la demande (${res.status}). ${msg}`, res.status)
 }
 
 export async function listModels(key: string): Promise<string[]> {
@@ -103,43 +105,43 @@ async function generateJSON(parts: Part[], schema: object, system: string): Prom
   }
 
   const debut = Date.now()
+  const passager = (e: unknown): e is GeminiError => e instanceof GeminiError && ['surcharge', 'quota', 'modele'].includes(e.kind)
+  const journal: string[] = []
   let r: Resp | undefined
   let last: GeminiError | undefined
-  try {
-    r = await attempt(model)
-  } catch (e) {
-    if (!(e instanceof GeminiError) || !['surcharge', 'quota', 'modele'].includes(e.kind)) throw e
-    last = e
-    // Surcharge passagère : un deuxième essai sur le même modèle après une courte pause.
-    if (e.kind === 'surcharge' && e.message === SURCHARGE) {
-      await sleep(4000)
+  let others: string[] | undefined
+  const candidats = async function* () {
+    yield model
+    others ??= fallbackOrder(await listModels(key).catch(() => []), model).filter((m) => m !== model)
+    yield* others
+  }
+  // Surcharge (erreur 5xx) : plusieurs essais espacés sur le même modèle, puis les autres modèles de la clé
+  // (chacun a sa propre charge et ses propres limites gratuites). Pas plus de ~3 min au total.
+  boucle: for await (const m of candidats()) {
+    if (m !== model) toast(`Gemini (${model}) est saturé : j'essaie avec ${m}…`)
+    const pauses = m === model ? [3000, 7000, 12000] : [5000]
+    for (let essai = 0; ; essai++) {
       try {
-        r = await attempt(model)
-      } catch (e2) {
-        if (!(e2 instanceof GeminiError) || !['surcharge', 'quota', 'modele'].includes(e2.kind)) throw e2
-        last = e2
+        r = await attempt(m)
+        if (m !== model && last?.kind === 'modele') await setSetting('model', m)
+        break boucle
+      } catch (e) {
+        if (!passager(e)) throw e
+        last = e
+        journal.push(`${m} : ${e.status ?? e.kind}`)
+        if (e.status === undefined || e.status < 500 || essai >= pauses.length || Date.now() - debut + pauses[essai] > 180_000) break
+        await sleep(pauses[essai])
       }
     }
-    // Puis les autres modèles disponibles avec la clé (chacun a sa propre charge et ses propres limites gratuites).
-    if (!r) {
-      const others = fallbackOrder(await listModels(key).catch(() => []), model).filter((m) => m !== model)
-      for (const m of others) {
-        if (Date.now() - debut > 180_000) break // pas plus de ~3 min d'attente au total
-        toast(`Gemini (${model}) est saturé : j'essaie avec ${m}…`)
-        try {
-          r = await attempt(m)
-          if (last.kind === 'modele') await setSetting('model', m)
-          break
-        } catch (e3) {
-          if (!(e3 instanceof GeminiError) || !['surcharge', 'quota', 'modele'].includes(e3.kind)) throw e3
-          last = e3
-        }
-      }
-    }
-    if (!r) {
-      if (last.kind === 'quota') throw last
-      throw new GeminiError('surcharge', "Tous les modèles Gemini sont saturés en ce moment. Réessaie dans quelques minutes ; ta demande n'est pas perdue, il suffit de retoucher « Générer ».")
-    }
+    if (Date.now() - debut > 180_000) break
+  }
+  if (!r) {
+    console.warn('Gemini, essais :', journal)
+    if (last?.kind === 'quota') throw last
+    throw new GeminiError(
+      'surcharge',
+      `Gemini est saturé en ce moment (${journal.length} essais en ${Math.round((Date.now() - debut) / 1000)} s). Réessaie dans quelques minutes ; il suffit de retoucher « Générer ».`,
+    )
   }
   if (r.promptFeedback?.blockReason) throw new GeminiError('autre', 'Gemini a bloqué cette demande. Reformule le thème.')
   const text = r.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
