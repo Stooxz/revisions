@@ -51,16 +51,32 @@ const TABS = [
   { path: 'reglages', label: 'Réglages', icon: '⚙️' },
 ]
 
-export function BottomNav({ current }: { current: string }) {
+export function Masthead({ children }: { children: ReactNode }) {
   return (
-    <nav className="bottom-nav" aria-label="Navigation principale">
-      {TABS.map((t) => (
-        <a key={t.path} href={`#/${t.path}`} aria-current={current === t.path ? 'page' : undefined}>
-          <span aria-hidden="true">{t.icon}</span>
-          {t.label}
-        </a>
-      ))}
-    </nav>
+    <header className="masthead">
+      <div className="masthead-inner">
+        <span className="brand">
+          <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" width="36" height="36" />
+          <span>Mes <em>révisions</em></span>
+        </span>
+        {children}
+      </div>
+    </header>
+  )
+}
+
+export function Navigation({ current }: { current: string }) {
+  return (
+    <Masthead>
+      <nav className="bottom-nav" aria-label="Navigation principale">
+        {TABS.map((t) => (
+          <a key={t.path} href={`#/${t.path}`} aria-current={current === t.path ? 'page' : undefined}>
+            <span aria-hidden="true">{t.icon}</span>
+            {t.label}
+          </a>
+        ))}
+      </nav>
+    </Masthead>
   )
 }
 

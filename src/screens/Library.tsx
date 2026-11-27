@@ -4,6 +4,7 @@ import { db } from '../db.ts'
 import { isDue, normalize } from '../logic.ts'
 import type { Profile, Revision } from '../types.ts'
 import { formatDate } from '../ui.tsx'
+import carnet from '../assets/carnet.png'
 
 type Filtre = 'toutes' | 'recentes' | 'arevoir' | 'favoris'
 const FILTRES: [Filtre, string][] = [['toutes', 'Toutes'], ['recentes', 'Récentes'], ['arevoir', 'À revoir'], ['favoris', 'Favoris']]
@@ -28,15 +29,13 @@ export function Library({ profile }: { profile: Profile }) {
   const matieres = [...new Set([...profile.matieres, ...(revisions ?? []).map((r) => r.matiere)])]
 
   return (
-    <main className="page">
-      <header className="top">
+    <main className="page library">
+      <header className="library-heading paper-grid">
         <h1>{profile.prenom ? `Bonjour ${profile.prenom} 👋` : 'Mes révisions'}</h1>
+        <a className="btn primary" href="#/creer">+ Nouvelle révision</a>
       </header>
-      <a className="btn primary big" href="#/creer">
-        + Nouvelle révision
-      </a>
       {revisions && revisions.length > 0 && (
-        <div className="stack tight">
+        <div className="card library-filters">
           <input type="search" aria-label="Rechercher" placeholder="🔎 Rechercher un thème…" value={q} onChange={(e) => setQ(e.target.value)} />
           <select aria-label="Filtrer par matière" value={matiere} onChange={(e) => setMatiere(e.target.value)}>
             <option value="">Toutes les matières</option>
@@ -54,9 +53,9 @@ export function Library({ profile }: { profile: Profile }) {
         </div>
       )}
       {revisions?.length === 0 && (
-        <div className="empty">
-          <p className="hero-emoji" aria-hidden="true">🌱</p>
-          <p>Ta bibliothèque est vide pour l'instant.</p>
+        <div className="card empty">
+          <img src={carnet} alt="" width="1000" height="572" />
+          <h2>Ta bibliothèque est vide pour l'instant.</h2>
           <p className="muted">Crée ta première révision : un thème suffit, et tu peux ajouter tes cours en PDF ou en photo.</p>
         </div>
       )}

@@ -87,7 +87,7 @@ export function Create({ profile }: { profile: Profile }) {
   return (
     <main className="page">
       <Header title="Nouvelle révision" />
-      <form className="stack" onSubmit={submit}>
+      <form className="card stack creation-form" onSubmit={submit}>
         <label className="field">
           Thème {files.length > 0 && <span className="muted">(facultatif avec des cours joints)</span>}
           <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="ex. Incoterms 2020" />

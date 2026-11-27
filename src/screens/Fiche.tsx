@@ -30,7 +30,7 @@ export function FicheView({ r }: { r: Revision }) {
       </div>
       <article className="card prose">
         <h1>{f.titre}</h1>
-        <p className="resume">{f.resume}</p>
+        {f.resume && <div className="resume"><h2>Résumé</h2><p>{f.resume}</p></div>}
         {f.sections.map((s, i) => (
           <section key={i}>
             <h2>{s.titre}</h2>

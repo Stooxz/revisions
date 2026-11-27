@@ -62,8 +62,8 @@ export function Cards({ r }: { r: Revision }) {
       <Header title={`Cartes · ${queue.length} restante${queue.length > 1 ? 's' : ''}`} back={`r/${r.id}`} />
       <p className="muted center">Boîte {c.boite} / 5</p>
       <button className={`flashcard ${flipped ? 'flipped' : ''}`} onClick={() => setFlipped(!flipped)} aria-label={flipped ? `Verso : ${c.verso}. Toucher pour revoir le recto` : `Recto : ${c.recto}. Toucher pour retourner`}>
-        <span className="face front">{c.recto}</span>
-        <span className="face back">{c.verso}</span>
+        <span className="face front"><small>Recto</small><span>{c.recto}</span></span>
+        <span className="face back"><small>Verso</small><span>{c.verso}</span></span>
       </button>
       {flipped ? (
         <div className="row2">
