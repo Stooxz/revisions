@@ -1,6 +1,6 @@
 # Mes révisions
 
-Une appli de révision gratuite qui s'installe sur le téléphone : fiches, quiz et cartes recto-verso générés par l'IA Claude (Anthropic) à partir d'un thème, d'un PDF ou d'une photo de cours. Il n'y a ni serveur ni compte : tout reste sur l'appareil.
+Une appli de révision gratuite qui s'installe sur le téléphone : fiches, quiz et cartes recto-verso générés par l'IA Gemini à partir d'un thème, d'un PDF ou d'une photo de cours. Il n'y a ni serveur ni compte : tout reste sur l'appareil.
 
 Adresse : https://stooxz.github.io/revisions/
 
@@ -11,14 +11,12 @@ Adresse : https://stooxz.github.io/revisions/
 
 Une fois installée, l'appli s'ouvre en plein écran. Les révisions déjà créées marchent hors ligne ; il faut internet seulement pour en générer de nouvelles.
 
-## Créer la clé Claude
-L'API Claude est payante à l'usage (environ quelques centimes par révision avec Opus 5.5, bien moins avec Sonnet ou Haiku). Elle est distincte d'un abonnement Claude Pro, qui ne fonctionne pas ici.
-1. Va sur [console.anthropic.com](https://console.anthropic.com/settings/keys) et connecte-toi (ou crée un compte).
-2. Dans **Billing**, ajoute un peu de crédit (quelques euros suffisent pour longtemps). On peut aussi y fixer une limite de dépense.
-3. Dans **API keys**, clique sur « Create Key » et copie la clé (elle commence par `sk-ant-`).
-4. Dans l'appli, ouvre **Réglages → Clé Claude**, colle la clé, puis touche « Tester ma clé ».
+## Créer la clé Gemini (gratuite)
+1. Va sur [aistudio.google.com/apikey](https://aistudio.google.com/apikey) avec un compte Google.
+2. Clique sur « Create API key » et copie la clé.
+3. Dans l'appli, ouvre **Réglages → Clé Gemini**, colle la clé, puis touche « Tester ma clé ».
 
-La clé est enregistrée seulement sur le téléphone et n'est envoyée qu'à Anthropic. Le modèle se choisit dans les Réglages : Claude Opus 5.5 par défaut, Sonnet 5.5 ou Haiku 5.5 pour aller plus vite et payer moins.
+La clé est enregistrée seulement sur le téléphone. Le modèle « Flash » le plus récent est choisi automatiquement. La formule gratuite a des limites : si l'appli affiche « limite gratuite atteinte », il suffit d'attendre quelques minutes.
 
 ## Faire une sauvegarde
 Les données ne sont que sur l'appareil. Si on efface les données du navigateur ou si on change de téléphone, elles sont perdues sans sauvegarde.
@@ -29,7 +27,7 @@ Les données ne sont que sur l'appareil. Si on efface les données du navigateur
 ```
 npm install
 npm run dev      # http://localhost:5173/revisions/
-npm test         # tests de la logique (correction, Leitner)
+npm test         # tests de la logique (correction, Leitner, choix du modèle)
 npm run build
 ```
 Le déploiement est automatique : chaque push sur `main` lance `.github/workflows/deploy.yml`. À faire une seule fois : **Settings → Pages → Source : GitHub Actions**.

@@ -1,11 +1,27 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { exportAll, importAll, setSetting, wipeAll, type Settings as S } from '../db.ts'
-import { DEFAULT_MODEL, MODELS } from '../ia.ts'
+import { ensureModel, GeminiError, listModels } from '../gemini.ts'
 import { downloadBlob, Header, toast } from '../ui.tsx'
 import { KeyForm, ProfileForm } from './ProfileForms.tsx'
 
 export function Settings({ settings }: { settings: S }) {
   const [profile, setProfile] = useState(settings.profile!)
+  const [models, setModels] = useState<string[]>([])
+  const [modelMsg, setModelMsg] = useState('')
+
+  const loadModels = async () => {
+    setModelMsg('Chargement…')
+    try {
+      await ensureModel(settings.apiKey ?? '') // bascule et prévient si le modèle enregistré a disparu
+      setModels(await listModels(settings.apiKey ?? ''))
+      setModelMsg('')
+    } catch (e) {
+      setModelMsg(e instanceof GeminiError ? e.message : String(e))
+    }
+  }
+  useEffect(() => {
+    if (settings.apiKey) loadModels()
+  }, [settings.apiKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const doExport = async () => downloadBlob(await exportAll(), `revisions-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`)
   const doImport = async (file?: File) => {
@@ -36,16 +52,19 @@ export function Settings({ settings }: { settings: S }) {
       </section>
 
       <section className="card stack">
-        <h2>Clé Claude</h2>
+        <h2>Clé Gemini</h2>
         <KeyForm initial={settings.apiKey} />
         <label className="field">
           Modèle
-          <select value={MODELS.some(([id]) => id === settings.model) ? settings.model : DEFAULT_MODEL} onChange={(e) => setSetting('model', e.target.value)}>
-            {MODELS.map(([id, label]) => (
-              <option key={id} value={id}>{label}</option>
+          <select value={settings.model ?? ''} onChange={(e) => setSetting('model', e.target.value)} disabled={!models.length}>
+            {!models.length && <option value="">{settings.model || '—'}</option>}
+            {models.map((m, i) => (
+              <option key={m} value={m}>{m}{i === 0 ? ' (recommandé)' : ''}</option>
             ))}
           </select>
         </label>
+        {modelMsg && <p className="muted" role="status">{modelMsg}</p>}
+        <button className="btn small ghost" onClick={loadModels} disabled={!settings.apiKey}>Actualiser la liste des modèles</button>
       </section>
 
       <section className="card stack">

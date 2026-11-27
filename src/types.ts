@@ -62,3 +62,4 @@ export interface Profile {
   matieres: string[]
 }
 
+export interface ApiModel { name: string; displayName?: string; supportedGenerationMethods?: string[] }

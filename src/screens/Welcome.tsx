@@ -17,7 +17,7 @@ export function Welcome() {
         <ProfileForm value={profile} onChange={setProfile} />
       </section>
       <section className="card">
-        <h2>Ta clé Claude</h2>
+        <h2>Ta clé Gemini</h2>
         <KeyForm />
         <p className="muted">Tu peux aussi le faire plus tard dans les Réglages.</p>
       </section>
