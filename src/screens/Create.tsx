@@ -65,13 +65,16 @@ export function Create({ profile }: { profile: Profile }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const sujet = theme.trim()
+    if (!sujet && !files.length) return setError('Indique un thème ou ajoute tes cours (PDF ou photo).')
+    if (!matiere.trim()) return setError('Choisis une matière.')
     if (!types.length) return setError('Choisis au moins un type de question.')
     if (total > MAX_BYTES) return setError(`Tes pièces jointes pèsent ${mo(total)}, la limite est de 15 Mo. Retire un fichier ou envoie seulement les pages utiles de ton PDF.`)
     setError('')
     setBusy(true)
     try {
-      const out = await generateRevision({ theme: theme.trim(), matiere, niveau, nombre, types, attachments: files })
-      const id = await db.revisions.add({ theme: theme.trim(), matiere, niveau, createdAt: Date.now(), brouillon: true, favori: false, attachments: files, ...out })
+      const out = await generateRevision({ theme: sujet || 'à déduire des pièces jointes', matiere: matiere.trim(), niveau, nombre, types, attachments: files })
+      const id = await db.revisions.add({ theme: sujet || out.fiche.titre || 'Révision', matiere: matiere.trim(), niveau, createdAt: Date.now(), brouillon: true, favori: false, attachments: files, ...out })
       go(`/r/${id}/modifier`)
     } catch (err) {
       setError(err instanceof GeminiError ? err.message : `Oups, quelque chose a coincé : ${String(err)}`)
@@ -86,16 +89,20 @@ export function Create({ profile }: { profile: Profile }) {
       <Header title="Nouvelle révision" />
       <form className="stack" onSubmit={submit}>
         <label className="field">
-          Thème
-          <input required value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="ex. Incoterms 2020" />
+          Thème {files.length > 0 && <span className="muted">(facultatif avec des cours joints)</span>}
+          <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="ex. Incoterms 2020" />
         </label>
         <label className="field">
           Matière
-          <select value={matiere} onChange={(e) => setMatiere(e.target.value)}>
-            {profile.matieres.map((m) => (
-              <option key={m}>{m}</option>
-            ))}
-          </select>
+          {profile.matieres.length ? (
+            <select value={matiere} onChange={(e) => setMatiere(e.target.value)}>
+              {profile.matieres.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          ) : (
+            <input value={matiere} onChange={(e) => setMatiere(e.target.value)} placeholder="ex. Droit" />
+          )}
         </label>
         <fieldset className="field">
           <legend>Niveau</legend>
@@ -156,7 +163,7 @@ export function Create({ profile }: { profile: Profile }) {
           )}
         </fieldset>
         {error && <p className="err-msg" role="alert">{error}</p>}
-        <button className="btn primary big" disabled={!theme.trim() || !matiere}>
+        <button type="submit" className="btn primary big">
           ✨ Générer
         </button>
       </form>
