@@ -1,12 +1,12 @@
 import { getSetting, setSetting } from './db.ts'
-import { cleanGenerated, cleanQuestion, pickModel } from './logic.ts'
+import { cleanGenerated, cleanQuestion, fallbackOrder, pickModel } from './logic.ts'
 import type { ApiModel, Attachment, Fiche, Niveau, Question, QType } from './types.ts'
 import { toast } from './ui.tsx'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
 export class GeminiError extends Error {
-  kind: 'cle' | 'quota' | 'reseau' | 'modele' | 'autre'
+  kind: 'cle' | 'quota' | 'surcharge' | 'reseau' | 'modele' | 'autre'
   constructor(kind: GeminiError['kind'], message: string) {
     super(message)
     this.kind = kind
@@ -15,18 +15,26 @@ export class GeminiError extends Error {
 
 const OFFLINE = new GeminiError('reseau', "Pas de connexion internet. Tes révisions déjà créées restent disponibles ; reconnecte-toi pour en générer de nouvelles.")
 
-async function call<T>(path: string, key: string, body?: unknown): Promise<T> {
+const SURCHARGE = 'Gemini est surchargé en ce moment. Réessaie dans quelques minutes.'
+
+async function call<T>(path: string, key: string, body?: unknown, timeoutMs = 30_000): Promise<T> {
   if (!key) throw new GeminiError('cle', "Ajoute d'abord ta clé Gemini dans les Réglages.")
   if (!navigator.onLine) throw OFFLINE
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   let res: Response
   try {
     res = await fetch(BASE + path, {
       method: body ? 'POST' : 'GET',
       headers: { 'x-goog-api-key': key, ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
     })
   } catch {
+    if (ctrl.signal.aborted) throw new GeminiError('surcharge', 'Gemini met trop de temps à répondre.')
     throw OFFLINE
+  } finally {
+    clearTimeout(timer)
   }
   if (res.ok) return res.json()
   const err = (await res.json().catch(() => ({}))) as { error?: { message?: string; status?: string } }
@@ -35,7 +43,7 @@ async function call<T>(path: string, key: string, body?: unknown): Promise<T> {
   if (res.status === 401 || res.status === 403 || /api key/i.test(msg))
     throw new GeminiError('cle', 'Ta clé Gemini est refusée. Vérifie-la dans les Réglages (copie-la en entier depuis AI Studio).')
   if (res.status === 404) throw new GeminiError('modele', 'Ce modèle Gemini n’existe plus.')
-  if (res.status >= 500) throw new GeminiError('autre', 'Gemini est surchargé en ce moment. Réessaie dans un instant.')
+  if (res.status >= 500) throw new GeminiError('surcharge', SURCHARGE)
   throw new GeminiError('autre', `Gemini a refusé la demande (${res.status}). ${msg}`)
 }
 
@@ -68,24 +76,58 @@ export async function ensureModel(key: string): Promise<string> {
 
 type Part = { text: string } | { inlineData: { mimeType: string; data: string } }
 
+const GEN_TIMEOUT = 120_000 // une génération avec PDF peut prendre ~1 min ; au-delà, on passe à la suite
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 async function generateJSON(parts: Part[], schema: object, system: string): Promise<unknown> {
   const key = (await getSetting('apiKey')) ?? ''
-  let model = (await getSetting('model')) || (await ensureModel(key))
+  const model = (await getSetting('model')) || (await ensureModel(key))
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts }],
     generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0.6 },
   }
   type Resp = { candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[]; promptFeedback?: { blockReason?: string } }
-  let r: Resp
+  const attempt = (m: string) => call<Resp>(`/models/${m}:generateContent`, key, body, GEN_TIMEOUT)
+
+  const debut = Date.now()
+  let r: Resp | undefined
+  let last: GeminiError | undefined
   try {
-    r = await call<Resp>(`/models/${model}:generateContent`, key, body)
+    r = await attempt(model)
   } catch (e) {
-    if (!(e instanceof GeminiError && e.kind === 'modele')) throw e
-    await setSetting('model', '')
-    model = await ensureModel(key)
-    toast(`Le modèle précédent a été retiré : j'utilise maintenant ${model}.`)
-    r = await call<Resp>(`/models/${model}:generateContent`, key, body)
+    if (!(e instanceof GeminiError) || !['surcharge', 'quota', 'modele'].includes(e.kind)) throw e
+    last = e
+    // Surcharge passagère : un deuxième essai sur le même modèle après une courte pause.
+    if (e.kind === 'surcharge' && e.message === SURCHARGE) {
+      await sleep(4000)
+      try {
+        r = await attempt(model)
+      } catch (e2) {
+        if (!(e2 instanceof GeminiError) || !['surcharge', 'quota', 'modele'].includes(e2.kind)) throw e2
+        last = e2
+      }
+    }
+    // Puis les autres modèles disponibles avec la clé (chacun a sa propre charge et ses propres limites gratuites).
+    if (!r) {
+      const others = fallbackOrder(await listModels(key).catch(() => []), model).filter((m) => m !== model)
+      for (const m of others) {
+        if (Date.now() - debut > 180_000) break // pas plus de ~3 min d'attente au total
+        toast(`Gemini (${model}) est saturé : j'essaie avec ${m}…`)
+        try {
+          r = await attempt(m)
+          if (last.kind === 'modele') await setSetting('model', m)
+          break
+        } catch (e3) {
+          if (!(e3 instanceof GeminiError) || !['surcharge', 'quota', 'modele'].includes(e3.kind)) throw e3
+          last = e3
+        }
+      }
+    }
+    if (!r) {
+      if (last.kind === 'quota') throw last
+      throw new GeminiError('surcharge', "Tous les modèles Gemini sont saturés en ce moment. Réessaie dans quelques minutes ; ta demande n'est pas perdue, il suffit de retoucher « Générer ».")
+    }
   }
   if (r.promptFeedback?.blockReason) throw new GeminiError('autre', 'Gemini a bloqué cette demande. Reformule le thème.')
   const text = r.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''

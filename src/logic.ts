@@ -58,6 +58,17 @@ export function pickModel(models: ApiModel[]): string | undefined {
   return rank(flash) ?? rank(ok.filter((n) => !special.test(n))) ?? ok[0]
 }
 
+/** Ordre des modèles de secours : le préféré, puis les Flash, les Flash-Lite, et enfin les autres (4 au plus). */
+export function fallbackOrder(names: string[], preferred?: string): string[] {
+  const special = /image|tts|audio|live|thinking|exp|embedding|robotics|computer|native|gemma/
+  const version = (n: string) => parseFloat(n.match(/^gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0')
+  const famille = (n: string) => (n.includes('flash') ? (n.includes('lite') ? 1 : 0) : 2)
+  const preview = (n: string) => Number(/preview|latest/.test(n))
+  const usable = names.filter((n) => n.startsWith('gemini') && !special.test(n))
+  usable.sort((a, b) => famille(a) - famille(b) || preview(a) - preview(b) || version(b) - version(a) || a.length - b.length)
+  return [...new Set([...(preferred ? [preferred] : []), ...usable])].slice(0, 4)
+}
+
 const TYPES: QType[] = ['qcm', 'vrai_faux', 'courte', 'trous', 'association']
 const str = (x: unknown) => (typeof x === 'string' ? x.trim() : '')
 const strs = (x: unknown) => (Array.isArray(x) ? x.map(str).filter(Boolean) : [])

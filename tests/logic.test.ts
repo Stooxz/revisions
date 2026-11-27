@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cleanGenerated, cleanQuestion, grade, pickModel, review } from '../src/logic.ts'
+import { cleanGenerated, cleanQuestion, fallbackOrder, grade, pickModel, review } from '../src/logic.ts'
 import type { Question } from '../src/types.ts'
 
 const q = (o: Partial<Question>): Question => ({
@@ -54,4 +54,10 @@ test('choix du modèle Flash', () => {
   assert.equal(pickModel([m('gemini-3-flash-preview'), m('gemini-2.5-pro-preview')]), 'gemini-3-flash-preview')
   assert.equal(pickModel([m('gemini-2.5-pro')]), 'gemini-2.5-pro')
   assert.equal(pickModel([]), undefined)
+})
+
+test('fallbackOrder : préféré, puis Flash, Flash-Lite, autres', () => {
+  const names = ['gemini-2.5-pro', 'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash-image', 'gemini-embedding-001', 'gemini-2.0-flash']
+  assert.deepEqual(fallbackOrder(names, 'gemini-3-flash-preview'), ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite'])
+  assert.deepEqual(fallbackOrder([], 'gemini-2.5-flash'), ['gemini-2.5-flash'])
 })
