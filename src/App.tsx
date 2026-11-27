@@ -10,7 +10,7 @@ import { Quiz } from './screens/Quiz.tsx'
 import { Settings } from './screens/Settings.tsx'
 import { Stats } from './screens/Stats.tsx'
 import { Welcome } from './screens/Welcome.tsx'
-import { BottomNav, Toasts, useRoute } from './ui.tsx'
+import { Navigation, Toasts, useRoute } from './ui.tsx'
 
 export function App() {
   const settings = useSettings()
@@ -28,12 +28,12 @@ export function App() {
 
   return (
     <>
+      <Navigation current={page === 'r' ? '' : page} />
       {page === '' && <Library profile={profile} />}
       {page === 'creer' && <Create profile={profile} />}
       {page === 'stats' && <Stats profile={profile} />}
       {page === 'reglages' && <Settings settings={settings} />}
       {page === 'r' && <RevisionRoute id={Number(id)} sub={sub} />}
-      <BottomNav current={page === 'r' ? '' : page} />
       <Toasts />
     </>
   )

@@ -34,7 +34,7 @@ export function ProfileForm({ value, onChange }: { value: Profile; onChange: (p:
     setExtra('')
   }
   return (
-    <div className="stack">
+    <div className="profile-fields">
       <label className="field">
         Prénom
         <input value={value.prenom} onChange={(e) => set('prenom', e.target.value)} autoComplete="given-name" />
@@ -53,7 +53,7 @@ export function ProfileForm({ value, onChange }: { value: Profile; onChange: (p:
           <input value={value.annee} onChange={(e) => set('annee', e.target.value)} />
         </label>
         <label className="field">
-          Date des examens <span className="muted">(facultatif)</span>
+          <span>Date des examens <small className="muted">(facultatif)</small></span>
           <input type="date" value={value.examDate} onChange={(e) => set('examDate', e.target.value)} />
         </label>
       </div>
@@ -99,7 +99,7 @@ export function KeyForm({ initial }: { initial?: string }) {
         <li>Clique sur « Create API key » (c'est gratuit).</li>
         <li>Copie la clé, colle-la ci-dessous puis touche « Tester ma clé ».</li>
       </ol>
-      <p className="muted">🔒 Ta clé reste sur ton téléphone : elle n'est envoyée qu'à Google pour créer tes révisions.</p>
+      <p className="key-note">Ta clé reste sur ton téléphone : elle n'est envoyée qu'à Google pour créer tes révisions.</p>
       <label className="field">
         Clé API Gemini
         <input value={key} onChange={(e) => setKey(e.target.value)} onBlur={() => key.trim() && setSetting('apiKey', key.trim())} autoComplete="off" spellCheck={false} placeholder="Colle ta clé ici" />
