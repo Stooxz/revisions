@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { setSetting } from '../db.ts'
-import { GeminiError, testKey } from '../gemini.ts'
+import { AIError, testKey } from '../ia.ts'
 import type { Profile } from '../types.ts'
 
 // Blocs de compétences du BTS CI (France compétences, RNCP41759) + enseignements généraux du BTS
@@ -84,24 +84,23 @@ export function KeyForm({ initial }: { initial?: string }) {
     try {
       const model = await testKey(key.trim())
       await setSetting('apiKey', key.trim())
-      await setSetting('model', model)
       setState({ kind: 'ok', msg: `Clé valide ✔ Modèle choisi : ${model}` })
     } catch (e) {
-      setState({ kind: 'err', msg: e instanceof GeminiError ? e.message : String(e) })
+      setState({ kind: 'err', msg: e instanceof AIError ? e.message : String(e) })
     }
   }
   return (
     <div className="stack">
       <ol className="steps">
         <li>
-          Ouvre <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">aistudio.google.com</a> et connecte-toi avec un compte Google.
+          Ouvre <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a> et connecte-toi (ou crée un compte).
         </li>
-        <li>Clique sur « Create API key » (c'est gratuit).</li>
-        <li>Copie la clé, colle-la ci-dessous puis touche « Tester ma clé ».</li>
+        <li>Ajoute un peu de crédit dans « Billing » : l'API Claude est payante à l'usage (quelques centimes par révision).</li>
+        <li>Dans « API keys », clique sur « Create Key », copie la clé (elle commence par « sk-ant- »), colle-la ci-dessous puis touche « Tester ma clé ».</li>
       </ol>
-      <p className="muted">🔒 Ta clé reste sur ton téléphone : elle n'est envoyée qu'à Google pour créer tes révisions.</p>
+      <p className="muted">🔒 Ta clé reste sur ton téléphone : elle n'est envoyée qu'à Anthropic (Claude) pour créer tes révisions.</p>
       <label className="field">
-        Clé API Gemini
+        Clé API Claude
         <input value={key} onChange={(e) => setKey(e.target.value)} onBlur={() => key.trim() && setSetting('apiKey', key.trim())} autoComplete="off" spellCheck={false} placeholder="Colle ta clé ici" />
       </label>
       <button type="button" className="btn" onClick={test} disabled={!key.trim() || state.kind === 'busy'}>

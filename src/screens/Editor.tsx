@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { db } from '../db.ts'
-import { GeminiError, regenerateQuestion } from '../gemini.ts'
+import { AIError, regenerateQuestion } from '../ia.ts'
 import { cleanQuestion } from '../logic.ts'
 import type { Question, Revision } from '../types.ts'
 import { go, Header, toast } from '../ui.tsx'
@@ -34,7 +34,7 @@ export function Editor({ revision }: { revision: Revision }) {
     try {
       setQ(i, await regenerateQuestion(r.questions[i], r))
     } catch (e) {
-      toast(e instanceof GeminiError ? e.message : 'Impossible de régénérer cette question.')
+      toast(e instanceof AIError ? e.message : 'Impossible de régénérer cette question.')
     }
     setRegen(null)
   }

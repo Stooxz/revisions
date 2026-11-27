@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { db } from '../db.ts'
-import { GeminiError, generateRevision } from '../gemini.ts'
+import { AIError, generateRevision } from '../ia.ts'
 import type { Attachment, Niveau, Profile, QType } from '../types.ts'
 import { go, Header } from '../ui.tsx'
 
@@ -8,7 +8,7 @@ const TYPES: [QType | 'cartes', string][] = [
   ['qcm', 'QCM'], ['vrai_faux', 'Vrai / faux'], ['courte', 'Réponse courte'], ['trous', 'Texte à trous'], ['association', 'Association'], ['cartes', 'Cartes recto-verso'],
 ]
 const NIVEAUX: Niveau[] = ['découverte', 'intermédiaire', 'examen']
-const MAX_BYTES = 15 * 1024 * 1024 // limite d'une requête Gemini avec fichiers en base64 (marge sous 20 Mo)
+const MAX_BYTES = 15 * 1024 * 1024 // marge sous la limite de 32 Mo d'une requête Claude (le base64 grossit les fichiers d'un tiers)
 const MESSAGES = ['Je lis tes cours…', 'Je repère les notions clés…', 'Je prépare ta fiche…', 'J’invente des questions pièges (mais gentilles)…', 'Je fabrique tes cartes…', 'Presque fini…']
 
 const readBase64 = (file: Blob) =>
@@ -77,7 +77,7 @@ export function Create({ profile }: { profile: Profile }) {
       const id = await db.revisions.add({ theme: sujet || out.fiche.titre || 'Révision', matiere: matiere.trim(), niveau, createdAt: Date.now(), brouillon: true, favori: false, attachments: files, ...out })
       go(`/r/${id}/modifier`)
     } catch (err) {
-      setError(err instanceof GeminiError ? err.message : `Oups, quelque chose a coincé : ${String(err)}`)
+      setError(err instanceof AIError ? err.message : `Oups, quelque chose a coincé : ${String(err)}`)
       setBusy(false)
     }
   }

@@ -1,5 +1,5 @@
 // Logique pure (sans navigateur) : testée par tests/logic.test.ts
-import type { ApiModel, Carte, Question, QType } from './types.ts'
+import type { Carte, Question, QType } from './types.ts'
 
 /** Minuscules, sans accents, sans espaces ni ponctuation. */
 export function normalize(s: string): string {
@@ -42,32 +42,6 @@ export function review(c: Carte, savais: boolean, now = Date.now()): Carte {
 }
 
 export const isDue = (c: Carte, now = Date.now()) => c.due <= now
-
-/** Choisit le modèle « Flash » stable le plus récent ; à défaut une préversion, puis n'importe quel Gemini. */
-export function pickModel(models: ApiModel[]): string | undefined {
-  const ok = models
-    .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
-    .map((m) => m.name.replace(/^models\//, ''))
-    .filter((n) => n.startsWith('gemini'))
-  const special = /lite|image|tts|audio|live|thinking|exp|embedding|robotics|computer|native/
-  const version = (n: string) => parseFloat(n.match(/^gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0')
-  const preview = (n: string) => /preview|latest/.test(n)
-  const rank = (list: string[]) =>
-    [...list].sort((a, b) => Number(preview(a)) - Number(preview(b)) || version(b) - version(a) || a.length - b.length)[0]
-  const flash = ok.filter((n) => n.includes('flash') && !special.test(n))
-  return rank(flash) ?? rank(ok.filter((n) => !special.test(n))) ?? ok[0]
-}
-
-/** Ordre des modèles de secours : le préféré, puis les Flash, les Flash-Lite, et enfin les autres (4 au plus). */
-export function fallbackOrder(names: string[], preferred?: string): string[] {
-  const special = /image|tts|audio|live|thinking|exp|embedding|robotics|computer|native|gemma/
-  const version = (n: string) => parseFloat(n.match(/^gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0')
-  const famille = (n: string) => (n.includes('flash') ? (n.includes('lite') ? 1 : 0) : 2)
-  const preview = (n: string) => Number(/preview|latest/.test(n))
-  const usable = names.filter((n) => n.startsWith('gemini') && !special.test(n))
-  usable.sort((a, b) => famille(a) - famille(b) || preview(a) - preview(b) || version(b) - version(a) || a.length - b.length)
-  return [...new Set([...(preferred ? [preferred] : []), ...usable])].slice(0, 4)
-}
 
 const TYPES: QType[] = ['qcm', 'vrai_faux', 'courte', 'trous', 'association']
 const str = (x: unknown) => (typeof x === 'string' ? x.trim() : '')
